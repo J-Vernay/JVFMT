@@ -76,5 +76,21 @@ MunitResult jvfmt_test_usage(MunitParameter const params[], void* fixture)
 	/// "NTSTATUS = {0!ntstatus:FR}"      // Applies the "ntstatus" converter, with spec "FR".
 	/// ```
 
+	/// Replacement fields access arguments. In `jvfmt`, these arguments are specified
+	/// with the macros `jvfmt0()`, `jvfmt1()`, `jvfmt2()`, etc. The number corresponds
+	/// to the number of arguments given by the caller.
+
+	pString = jvfmt0(&f, "Hello!");
+	ASSERT_STR_EQUAL(pString, "Hello!");
+
+	pString = jvfmt1(&f, "Hello {}!", "World");
+	ASSERT_STR_EQUAL(pString, "Hello World!");
+
+	pString = jvfmt2(&f, "{1} {0} !", "le monde", "Bonjour");
+	ASSERT_STR_EQUAL(pString, "Bonjour le monde !");
+
+	pString = jvfmt2(&f, "{} {} {0} {} {0} {0} {}", "tic", "tac");
+	ASSERT_STR_EQUAL(pString, "tic tac tic tac tic tic tac");
+
 	return MUNIT_OK;
 }

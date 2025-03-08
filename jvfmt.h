@@ -128,4 +128,21 @@ inline void jvfmt_arg_ptr(JVFMT* p, void const* v)
 	++p->argCount;
 }
 
+/// Reads as much ASCII digits as possible from `pStr`.
+/// Not needed for `jvfmt` API, but can be useful for implementing custom formatters.
+/// @returns Number of ASCII digits read, 0 in case of overflow.
+static inline size_t jvfmt_impl_readUint16(char const* pStr, unsigned short* pOut)
+{
+	unsigned long v = 0;
+	char const* p = pStr;
+	for (; *p >= '0' && *p <= '9'; ++p) {
+		v *= 10;
+		v += (*p - '0');
+		if (v >= 0x10000)
+			return 0;
+	}
+	*pOut = (unsigned short)v;
+	return p - pStr;
+}
+
 #endif

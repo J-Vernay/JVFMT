@@ -95,8 +95,10 @@ static unsigned long _jvfmt_read_small_uint(char const** ppStr)
 
 char const* jvfmt_end(JVFMT* f, char const* pFormat)
 {
+	unsigned short argIdx = 0;
 	char* p = f->pBuffer;
-	while (*pFormat) {
+
+	for (; *pFormat; ++argIdx) {
 		_jvfmtParseResult res = {0};
 		_jvfmtError error = _jvfmtParse(&pFormat, &res);
 		if (error) {
@@ -105,10 +107,28 @@ char const* jvfmt_end(JVFMT* f, char const* pFormat)
 		for (size_t i = 0; i < res.lenLiteral; ++i) {
 			*p++ = res.pLiteral[i];
 		}
-		if (!res.pName)
+		if (!res.pName) {
 			continue; // No substitution
+		}
 
-		break; // TODO
+		if (res.lenName) {
+			size_t lenDigits = jvfmt_impl_readUint16(res.pName, &argIdx);
+			if (lenDigits != res.lenName)
+				break; // TODO
+		}
+
+		if (argIdx >= f->argCount) {
+			break; // TODO
+		}
+
+		char argKind = f->argKinds[argIdx];
+
+		if (argKind != 's') {
+			break; // TODO
+		}
+		char const* pSrc = f->args[argIdx].str;
+		while (*pSrc)
+			*p++ = *pSrc++;
 	}
 
 	*p = '\0';
