@@ -1,0 +1,11 @@
+---
+BasedOnStyle: Microsoft
+
+ColumnLimit: 100
+UseTab: Always
+TabWidth: 4
+
+AccessModifierOffset: -4
+AlignArrayOfStructures: Left
+PointerAlignment: Left
+BreakBeforeBraces: Stroustrup
