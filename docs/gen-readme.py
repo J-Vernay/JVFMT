@@ -34,10 +34,10 @@ def read_file_into_md(p: Path):
             nb_empty_lines = 0
             content_2.append(line[3:].strip())
         else:
+            content_2 += [""] * nb_empty_lines
+            nb_empty_lines = 0
             if in_md:
                 in_md = False
-                content_2 += [""] * nb_empty_lines
-                nb_empty_lines = 0
                 content_2.append(f"```{suffix}")
             content_2.append(line)
     if not in_md:

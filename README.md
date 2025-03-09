@@ -47,10 +47,10 @@ the literal text, you can double them with `{{` and `}}`.
 ```c
 pString = jvfmt0(&f, "Hello!");
 ASSERT_STR_EQUAL(pString, "Hello!");
+
 pString = jvfmt0(&f, "Hello {{World}}!");
 ASSERT_STR_EQUAL(pString, "Hello {World}!");
 ```
-
 
 The replacement fields follow this grammar:
 
@@ -80,16 +80,16 @@ to the number of arguments given by the caller.
 ```c
 pString = jvfmt0(&f, "Hello!");
 ASSERT_STR_EQUAL(pString, "Hello!");
+
 pString = jvfmt1(&f, "Hello {}!", "World");
 ASSERT_STR_EQUAL(pString, "Hello World!");
+
 pString = jvfmt2(&f, "{1} {0} !", "le monde", "Bonjour");
 ASSERT_STR_EQUAL(pString, "Bonjour le monde !");
+
 pString = jvfmt2(&f, "{} {} {0} {} {0} {0} {}", "tic", "tac");
 ASSERT_STR_EQUAL(pString, "tic tac tic tac tic tic tac");
 ```
-
-
-
 
 **jvfmt** has built-in support for primitive C data types:
 signed and unsigned integers, floats and doubles, pointers
