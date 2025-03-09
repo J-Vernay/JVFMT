@@ -14,6 +14,22 @@ typedef struct JVFMT JVFMT;
 #define jvfmt3(p, pFormat, a0, a1, a2)                                                             \
 	(jvfmt_begin(p), jvfmt_arg(p, a0), jvfmt_arg(p, a1), jvfmt_arg(p, a2), jvfmt_end(p, pFormat))
 
+#define jvfmt4(p, pFormat, a0, a1, a2, a3)                                                         \
+	(jvfmt_begin(p), jvfmt_arg(p, a0), jvfmt_arg(p, a1), jvfmt_arg(p, a2), jvfmt_arg(p, a3),       \
+	 jvfmt_end(p, pFormat))
+
+#define jvfmt5(p, pFormat, a0, a1, a2, a3, a4)                                                     \
+	(jvfmt_begin(p), jvfmt_arg(p, a0), jvfmt_arg(p, a1), jvfmt_arg(p, a2), jvfmt_arg(p, a3),       \
+	 jvfmt_arg(p, a4), jvfmt_end(p, pFormat))
+
+#define jvfmt6(p, pFormat, a0, a1, a2, a3, a4, a5)                                                 \
+	(jvfmt_begin(p), jvfmt_arg(p, a0), jvfmt_arg(p, a1), jvfmt_arg(p, a2), jvfmt_arg(p, a3),       \
+	 jvfmt_arg(p, a4), jvfmt_arg(p, a5), jvfmt_end(p, pFormat))
+
+#define jvfmt7(p, pFormat, a0, a1, a2, a3, a4, a5, a6)                                             \
+	(jvfmt_begin(p), jvfmt_arg(p, a0), jvfmt_arg(p, a1), jvfmt_arg(p, a2), jvfmt_arg(p, a3),       \
+	 jvfmt_arg(p, a4), jvfmt_arg(p, a5), jvfmt_arg(p, a6), jvfmt_end(p, pFormat))
+
 /// @name Low-level API
 /// @{
 

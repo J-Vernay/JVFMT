@@ -11,6 +11,8 @@ MunitResult jvfmt_test_usage(MunitParameter const params[], void* fixture)
 	(void)fixture;
 	char const* pString = NULL;
 
+	/// === BEGIN USAGE ===
+
 	/// Contrary to most C formatting string APIs, **jvfmt** is explicit about its state.
 	/// This lets you control the memory allocation strategy. You are responsible
 	/// for zero-initializing `JVFMT`, and give it a buffer to use for storing
@@ -91,6 +93,14 @@ MunitResult jvfmt_test_usage(MunitParameter const params[], void* fixture)
 
 	pString = jvfmt2(&f, "{} {} {0} {} {0} {0} {}", "tic", "tac");
 	ASSERT_STR_EQUAL(pString, "tic tac tic tac tic tic tac");
+
+	/// **jvfmt** has built-in support for primitive C data types:
+	/// signed and unsigned integers, floats and doubles, pointers
+	/// and null-terminated char strings.
+
+	pString = jvfmt4(&f, "{} {} {} {}", 0.25f, 1.125e300, INT64_MIN, UINT64_MAX);
+
+	/// === END ===
 
 	return MUNIT_OK;
 }
