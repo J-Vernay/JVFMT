@@ -2,7 +2,11 @@
 #ifndef JVFMT_H_
 #define JVFMT_H_
 
+#include <stdbool.h>
+
 typedef struct JVFMT JVFMT;
+typedef union JVFMT_ARG JVFMT_ARG;
+typedef struct JVFMT_SPEC JVFMT_SPEC;
 
 #define jvfmt0(p, pFormat) (jvfmt_begin(p), jvfmt_end(p, pFormat))
 
@@ -63,6 +67,15 @@ char const* jvfmt_end(JVFMT* p, char const* pFormat);
 #define JVFMT_RECOMMENDED_BUFFER_SIZE 4096
 #define JVFMT_RECOMMENDED_MAX_LENGTH 511
 
+union JVFMT_ARG {
+	long long llong;		   ///< Kind = 'q'
+	unsigned long long ullong; ///< Kind = 'Q'
+	float float_;			   ///< Kind = 'f'
+	double double_;			   ///< Kind = 'd'
+	char const* str;		   ///< Kind = 's'
+	void const* ptr;		   ///< Kind = 'p'
+};
+
 struct JVFMT {
 	/// **(CONFIG)** Memory area where to put formatted output, used as ring buffer.
 	char* pBuffer;
@@ -84,14 +97,7 @@ struct JVFMT {
 	/// **(CALL)** Type of each argument, encoded as a single ASCII byte per argument.
 	char argKinds[FMT_MAX_ARGS];
 	/// **(CALL)** Storage for each argument.
-	union {
-		long long llong;		   ///< Kind = 'q'
-		unsigned long long ullong; ///< Kind = 'Q'
-		float float_;			   ///< Kind = 'f'
-		double double_;			   ///< Kind = 'd'
-		char const* str;		   ///< Kind = 's'
-		void const* ptr;		   ///< Kind = 'p'
-	} args[FMT_MAX_ARGS];
+	JVFMT_ARG args[FMT_MAX_ARGS];
 
 	/// **(INTERNAL)** Beginning for next formatted output.
 	size_t _priv_pos;
@@ -160,5 +166,31 @@ static inline size_t jvfmt_impl_readUint16(char const* pStr, unsigned short* pOu
 	*pOut = (unsigned short)v;
 	return p - pStr;
 }
+
+/// === BEGIN HEADER_LOWLEVEL_SPEC ===
+
+struct JVFMT_SPEC {
+	unsigned short width;
+	unsigned short precision;
+	char fill;
+	char align;
+	char quote;
+	char type;
+	char flags[8];
+};
+
+// Utility for implementing custom formatters with some decent support for specifiers.
+// @returns Whether the entire specification have been consumed, else an error occurred.
+bool jvfmtParseSpec(char const* p, JVFMT_SPEC* pSpec);
+
+/// === END ===
+
+void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC const* pSpec, void const* value);
+void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC const* pSpec, long long value);
+void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC const* pSpec, unsigned long long value);
+void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC const* pSpec, float value);
+void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC const* pSpec, double value);
+void jvfmtConcatString(JVFMT* f, JVFMT_SPEC const* pSpec, char const* value);
+void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);
 
 #endif

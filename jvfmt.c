@@ -136,3 +136,62 @@ char const* jvfmt_end(JVFMT* f, char const* pFormat)
 	f->resultLength = p - f->pResult;
 	return f->pResult;
 }
+
+bool jvfmtParseSpec(char const* pIn, JVFMT_SPEC* pSpec)
+{
+	JVFMT_SPEC spec = {0};
+	size_t flagCount = 0;
+
+	char const* p = pIn;
+	char c0 = p[0];
+	if (!c0)
+		goto end_parse;
+
+	char c = p[1];
+	if (c == '<' || c == '>' || c == '^' || c == '=') {
+		spec.fill = c0;
+		spec.align = c;
+		p += 2;
+	}
+	else if (c0 == '<' || c0 == '>' || c0 == '^' || c0 == '=') {
+		spec.fill = ' ';
+		spec.align = c0;
+		p += 1;
+	}
+
+	for (;; ++p) {
+		c = *p;
+		if (!c)
+			goto end_parse;
+
+		if (c >= '1' && c <= '9' || c == '.')
+			break;
+		// Leading zeroes are part of the prefix.
+		if (flagCount == sizeof(spec.flags) - 1)
+			goto end_parse; // Too many flags.
+		spec.flags[flagCount++] = c;
+	}
+
+	if (*p != '.')
+		p += jvfmt_impl_readUint16(p, &spec.width);
+	if (*p == '.')
+		p += jvfmt_impl_readUint16(p + 1, &spec.precision) + 1;
+	if (*p == '?')
+		spec.quote = *p++;
+	if (*p)
+		spec.type = *p++;
+
+end_parse:
+	if (*p)
+		return false; // Error: not all specification consumed.
+	*pSpec = spec;
+	return true;
+}
+
+void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC const* pSpec, void const* value);
+void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC const* pSpec, long long value);
+void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC const* pSpec, unsigned long long value);
+void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC const* pSpec, float value);
+void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC const* pSpec, double value);
+void jvfmtConcatString(JVFMT* f, JVFMT_SPEC const* pSpec, char const* value);
+void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);

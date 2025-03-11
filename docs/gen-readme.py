@@ -21,25 +21,28 @@ def read_file_into_md(p: Path):
     content_2 = []
     in_md = True
     nb_empty_lines = 0
+    indent = ""
     for line in content:
-        line = line.strip()
-        if not line:
+        line = line.replace("\t", "    ").rstrip()
+        line_stripped = line.lstrip()
+        if not line_stripped:
             nb_empty_lines += 1
             continue
-        if line.startswith("///"):
+        if line_stripped.startswith("///"):
             if not in_md:
                 in_md = True
                 content_2.append("```")
             content_2 += [""] * nb_empty_lines
             nb_empty_lines = 0
-            content_2.append(line[3:].strip())
+            content_2.append(line_stripped[3:].removeprefix(" "))
+            indent = line[:len(line) - len(line_stripped)]
         else:
             content_2 += [""] * nb_empty_lines
             nb_empty_lines = 0
             if in_md:
                 in_md = False
                 content_2.append(f"```{suffix}")
-            content_2.append(line)
+            content_2.append(line.removeprefix(indent))
     if not in_md:
         content_2.append("```")
     return content_2
