@@ -1,6 +1,7 @@
 #include "jvfmt.h"
 
 #include <stddef.h>
+#include <string.h>
 
 typedef enum _jvfmtError {
 	_jvfmt_OK = 0,
@@ -188,10 +189,57 @@ end_parse:
 	return true;
 }
 
-void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC const* pSpec, void const* value);
-void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC const* pSpec, long long value);
-void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC const* pSpec, unsigned long long value);
-void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC const* pSpec, float value);
-void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC const* pSpec, double value);
-void jvfmtConcatString(JVFMT* f, JVFMT_SPEC const* pSpec, char const* value);
-void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);
+void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC spec, void const* value)
+{
+	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+}
+
+void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC spec, long long value)
+{
+	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+}
+
+void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value)
+{
+	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+}
+
+void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC spec, float value)
+{
+	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+}
+
+void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC spec, double value)
+{
+	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+}
+
+void jvfmtConcatString(JVFMT* f, JVFMT_SPEC spec, char const* value)
+{
+	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+}
+
+void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount)
+{
+	// Check whether we reach the end of the ring buffer.
+	// In this case, move the current string at start of ring buffer.
+	// This same check works also when `f` has just been zero-initialized,
+	// to init `_priv_posEnd` to its relevant value `maxLength`.
+	size_t remaining = f->_priv_posEnd - f->_priv_pos;
+	if (byteCount > remaining								  //
+		&& f->_priv_posEnd - f->_priv_posBegin < f->maxLength //
+	) {
+		char* pSrc = f->pBuffer + f->_priv_posBegin;
+		char* pDst = f->pBuffer;
+		size_t count = f->_priv_pos - f->_priv_posBegin;
+		memmove(pDst, pSrc, count);
+		f->_priv_posBegin = 0;
+		f->_priv_pos = count;
+		f->_priv_posEnd = f->maxLength;
+		remaining = f->maxLength - count;
+	}
+	if (byteCount > remaining)
+		byteCount = remaining;
+	memcpy(f->pBuffer + f->_priv_pos, pBytes, byteCount);
+	f->_priv_pos += byteCount;
+}

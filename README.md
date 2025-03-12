@@ -171,3 +171,37 @@ ASSERT(spec.quote, ==, false);
 ASSERT(spec.type, ==, 'X');
 ASSERT_STR_EQUAL(spec.flags, "#_0");
 ```
+
+
+
+**jvfmt** exposes a low-level API consisting of direct element concatenation.
+Note that these APIs do not null-terminate their output.
+
+
+```h
+void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC spec, void const* value);
+void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC spec, long long value);
+void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value);
+void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC spec, float value);
+void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC spec, double value);
+void jvfmtConcatString(JVFMT* f, JVFMT_SPEC spec, char const* value);
+void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);
+```
+
+
+Among these functions, `jvfmtConcatRawBytes()` is the most basic: it directly
+copies bytes to the `JVFMT` buffer.
+
+```c
+char fmtBuffer[JVFMT_RECOMMENDED_BUFFER_SIZE];
+JVFMT f = {0};
+f.pBuffer = fmtBuffer;
+f.bufferSize = JVFMT_RECOMMENDED_BUFFER_SIZE;
+f.maxLength = JVFMT_RECOMMENDED_MAX_LENGTH;
+
+jvfmtConcatRawBytes(&f, "Hello,", 6);
+ASSERT_MEM_EQUAL(6, f.pBuffer, "Hello,");
+
+jvfmtConcatRawBytes(&f, " World!", 7);
+ASSERT_MEM_EQUAL(13, f.pBuffer, "Hello, World!");
+```

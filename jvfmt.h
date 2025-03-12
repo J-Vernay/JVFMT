@@ -100,6 +100,10 @@ struct JVFMT {
 	JVFMT_ARG args[FMT_MAX_ARGS];
 
 	/// **(INTERNAL)** Beginning for next formatted output.
+	// size_t _priv_pos;
+
+	size_t _priv_posBegin;
+	size_t _priv_posEnd;
 	size_t _priv_pos;
 };
 
@@ -185,12 +189,16 @@ bool jvfmtParseSpec(char const* p, JVFMT_SPEC* pSpec);
 
 /// === END ===
 
-void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC const* pSpec, void const* value);
-void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC const* pSpec, long long value);
-void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC const* pSpec, unsigned long long value);
-void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC const* pSpec, float value);
-void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC const* pSpec, double value);
-void jvfmtConcatString(JVFMT* f, JVFMT_SPEC const* pSpec, char const* value);
+/// === BEGIN HEADER_LOWLEVEL_CONCAT ===
+
+void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC spec, void const* value);
+void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC spec, long long value);
+void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value);
+void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC spec, float value);
+void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC spec, double value);
+void jvfmtConcatString(JVFMT* f, JVFMT_SPEC spec, char const* value);
 void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);
+
+/// === END ===
 
 #endif

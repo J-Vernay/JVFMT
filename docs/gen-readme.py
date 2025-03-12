@@ -1,16 +1,17 @@
 from pathlib import Path
 import argparse
 
-parser = argparse.ArgumentParser(description="Generate README.md for JVFMT")
-parser.add_argument("template_path")
-parser.add_argument("dest_path")
-args = parser.parse_args()
-
-template_path = Path(args.template_path).resolve()
-dest_path = Path(args.dest_path).resolve()
-
-#template_path = Path("docs/readme-template.md").resolve()
-#dest_path = Path("README.md").resolve()
+# For debugging, change 1 by 0
+if 1:
+    parser = argparse.ArgumentParser(description="Generate README.md for JVFMT")
+    parser.add_argument("template_path")
+    parser.add_argument("dest_path")
+    args = parser.parse_args()
+    template_path = Path(args.template_path).resolve()
+    dest_path = Path(args.dest_path).resolve()
+else:
+    template_path = Path("docs/readme-template.md").resolve()
+    dest_path = Path("README.md").resolve()
 
 def read_file_into_md(p: Path):
     content = p.read_text().splitlines()
@@ -54,14 +55,16 @@ def preprocess_file(path: Path, section: str):
     for line in content:
         if not (len(line) > 6 and line.startswith("===") and line.endswith("===")):
             if in_section:
-                content_2.append(line)
+                if not "=== HIDE ===" in line:
+                    content_2.append(line)
             continue
         args = line[3:-3].split()
         if args[0] == "INCLUDE":
-            child_path = args[1]
-            child_section = args[2]
-            child_content = preprocess_file(path.parent / child_path, child_section)
-            content_2 += child_content
+            if in_section:
+                child_path = args[1]
+                child_section = args[2]
+                child_content = preprocess_file(path.parent / child_path, child_section)
+                content_2 += child_content
         elif args[0] == "BEGIN":
             in_section = (args[1] == section or section == "*")
         elif args[0] == "END":

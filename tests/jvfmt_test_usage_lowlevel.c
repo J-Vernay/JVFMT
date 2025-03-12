@@ -3,6 +3,7 @@
 
 #include "../jvfmt.h"
 
+#define ASSERT_MEM_EQUAL munit_assert_memory_equal
 #define ASSERT_STR_EQUAL munit_assert_string_equal
 #define ASSERT munit_assert_int64
 
@@ -15,7 +16,7 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	///	Whether you want to call directly the low-level API or implement a custom formatter,
 	/// you need to provide a format specification, represented by the `JVFMT_SPEC` structure.
 
-	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_SPEC===
+	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_SPEC ===
 
 	/// The structure can be obtained by parsing the specification string with `jvfmtParseSpec()`.
 	///
@@ -63,6 +64,32 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	ASSERT(spec.quote, ==, false);
 	ASSERT(spec.type, ==, 'X');
 	ASSERT_STR_EQUAL(spec.flags, "#_0");
+
+	/// === END ===
+
+	/// === BEGIN USAGE_LOWLEVEL_CONCAT ===
+	///
+	/// **jvfmt** exposes a low-level API consisting of direct element concatenation.
+	/// Note that these APIs do not null-terminate their output.
+	///
+	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_CONCAT ===
+	///
+	/// Among these functions, `jvfmtConcatRawBytes()` is the most basic: it directly
+	/// copies bytes to the `JVFMT` buffer.
+
+	char fmtBuffer[JVFMT_RECOMMENDED_BUFFER_SIZE];
+	JVFMT f = {0};
+	f.pBuffer = fmtBuffer;
+	f.bufferSize = JVFMT_RECOMMENDED_BUFFER_SIZE;
+	f.maxLength = JVFMT_RECOMMENDED_MAX_LENGTH;
+
+	jvfmtConcatRawBytes(&f, "Hello,", 6);
+	ASSERT_MEM_EQUAL(6, f.pBuffer, "Hello,");
+	ASSERT(f._priv_pos, ==, 6); /// === HIDE ===
+
+	jvfmtConcatRawBytes(&f, " World!", 7);
+	ASSERT_MEM_EQUAL(13, f.pBuffer, "Hello, World!");
+	ASSERT(f._priv_pos, ==, 13); /// === HIDE ===
 
 	/// === END ===
 

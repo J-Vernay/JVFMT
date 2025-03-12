@@ -8,3 +8,5 @@
 ### Low-level API
 
 === INCLUDE ../tests/jvfmt_test_usage_lowlevel.c USAGE_LOWLEVEL_SPEC ===
+
+=== INCLUDE ../tests/jvfmt_test_usage_lowlevel.c USAGE_LOWLEVEL_CONCAT ===
