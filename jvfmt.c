@@ -3,6 +3,17 @@
 #include <stddef.h>
 #include <string.h>
 
+// Adapted to 64-bits from:
+// https://graphics.stanford.edu/~seander/bithacks.html#ValueInWord
+#define haszero64(v) (((v)-0x0101010101010101ull) & ~(v) & 0x8080808080808080ull)
+#define hasvalue64(x, n) (haszero64((x) ^ (0x0101010101010101ull * (n))))
+
+#if _MSC_VER
+#define JVIMPL_NOINLINE __declspec(noinline)
+#else
+#define JVIMPL_NOINLINE __attribute__((noinline))
+#endif
+
 typedef enum _jvfmtError {
 	_jvfmt_OK = 0,
 	_jvfmt_CLOSE_BRACE_NOT_FOUND,
@@ -189,57 +200,401 @@ end_parse:
 	return true;
 }
 
-void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC spec, void const* value)
+#if 0
+void jvfmt_PutPtr(JVFMT* f, JVFMT_SPEC spec, void const* value)
 {
-	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+	jvfmt_PutRawBytes(f, "JVERR-NOIMPL", 12);
 }
 
-void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC spec, long long value)
+void jvfmt_PutInt(JVFMT* f, JVFMT_SPEC spec, long long value)
 {
-	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+	jvfmt_PutRawBytes(f, "JVERR-NOIMPL", 12);
 }
 
-void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value)
+void jvfmt_PutUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value)
 {
-	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+	jvfmt_PutRawBytes(f, "JVERR-NOIMPL", 12);
 }
 
-void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC spec, float value)
+void jvfmt_PutFloat(JVFMT* f, JVFMT_SPEC spec, float value)
 {
-	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+	jvfmt_PutRawBytes(f, "JVERR-NOIMPL", 12);
 }
 
-void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC spec, double value)
+void jvfmt_PutDouble(JVFMT* f, JVFMT_SPEC spec, double value)
 {
-	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+	jvfmt_PutRawBytes(f, "JVERR-NOIMPL", 12);
 }
 
-void jvfmtConcatString(JVFMT* f, JVFMT_SPEC spec, char const* value)
+// \t=0x09 \n=0x0A \r=0x0D \"=0x22 \\=0x5C
+#define _jvimpl_IsStrEscape(c) hasvalue64(0x090A0D225C5C5C5Cull, c)
+
+size_t _jvimpl_GetQuoteContentLength(JVFMT* f, JVFMT_SPEC spec, char const* p, size_t valueLength)
 {
-	jvfmtConcatRawBytes(f, "JVERR-NOIMPL", 12);
+	// Chars matching bLUT are \r \n \t etc : one extra char to output.
+	// Other control chars are \u0000 etc : five extra chars to output.
+
+	size_t escapedLength = valueLength;
+	char const* pEnd = p + valueLength;
+	while (true) {
+		// Fast path
+		while (true) {
+			if (p == pEnd)
+				return escapedLength;
+			unsigned char c = *p++;
+			if (c <= 0x20)
+				break;
+			if (_jvimpl_IsStrEscape(c))
+				goto char_escape;
+		}
+		escapedLength += 4;
+	char_escape:
+		escapedLength += 1;
+	}
 }
 
-void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount)
+static char* _jvimpl_EscapeString_SlowPath(char* p, char* pEnd, char const* pIn,
+										   char const* pInEnd);
+
+JVIMPL_NOINLINE static char* _jvimpl_EscapeString(char* p, char* pEnd, char const* pIn,
+												  char const* pInEnd)
 {
-	// Check whether we reach the end of the ring buffer.
-	// In this case, move the current string at start of ring buffer.
+	// Fast path, for long sequences with nothing to escape.
+	for (; p != pEnd && pIn != pEnd; ++pIn) {
+		unsigned char c = *pIn;
+		if (c < 0x20 || c == '"' || c == '\\')
+			return _jvimpl_EscapeString_SlowPath(p, pEnd, pIn, pInEnd);
+		*p = c;
+	}
+	return p;
+}
+
+JVIMPL_NOINLINE static char* _jvimpl_EscapeString_SlowPath(char* p, char* pEnd, char const* pIn,
+														   char const* pInEnd)
+{
+	char c = *pIn;
+	if (_jvimpl_IsStrEscape(c)) {
+		*p++ = '\\';
+		if (p == pEnd)
+			return p;
+		switch (c) {
+		case '\t':
+			*p++ = 't';
+			break;
+		case '\n':
+			*p++ = 'n';
+			break;
+		case '\r':
+			*p++ = 'r';
+			break;
+		case '"':
+			*p++ = '"';
+			break;
+		case '\\':
+			*p++ = '\\';
+			break;
+		}
+		return _jvimpl_EscapeString(p, pEnd, pIn, pInEnd);
+	}
+	else {
+		*p++ = '\\';
+		if (p == pEnd)
+			return p;
+		*p++ = 'u';
+		if (p == pEnd)
+			return p;
+		*p++ = '0';
+		if (p == pEnd)
+			return p;
+		*p++ = '0';
+		if (p == pEnd)
+			return p;
+		*p++ = "0123456789ABCDEF"[c / 16];
+		if (p == pEnd)
+			return p;
+		*p++ = "0123456789ABCDEF"[c % 16];
+		return _jvimpl_EscapeString(p, pEnd, pIn, pInEnd);
+	}
+}
+
+bool jvfmt_PutString(JVFMT* f, JVFMT_SPEC spec, char const* value, size_t valueLength)
+{
+	if (spec.type && spec.type != 's' && spec.type != '?')
+		return false; // ERROR
+
+	if (spec.precision && valueLength > spec.precision)
+		valueLength = spec.precision;
+
+	// Fast path, plain string concatenation.
+	if (valueLength <= spec.width && !spec.quote && spec.type != '?') {
+		size_t actualCount = valueLength;
+		char* p = jvfmt_PutOverwrite(f, &actualCount);
+		memcpy(p, value, actualCount);
+		return actualCount == valueLength;
+	}
+
+	size_t contentLength = valueLength;
+	if (spec.quote)
+		contentLength = _jvimpl_GetQuoteContentLength(f, spec, value, valueLength);
+
+	size_t padSize = 0;
+	size_t outSize = contentLength;
+	if (spec.quote)
+		outSize += 2;
+	if (outSize < spec.width) {
+		padSize = spec.width - outSize;
+		outSize = spec.width;
+	}
+
+	size_t actualSize = outSize;
+	char* p = jvfmt_PutOverwrite(f, &actualSize);
+	char* pEnd = p + actualSize;
+
+	if (p == pEnd)
+		return false;
+
+	size_t leftPad;
+	size_t rightPad;
+	switch (spec.align) {
+	case '^':
+		leftPad = padSize / 2;
+		rightPad = padSize - leftPad;
+		break;
+	case '>':
+		leftPad = padSize;
+		rightPad = 0;
+		break;
+	case '=':
+		if (!spec.quote && valueLength > 0 && (value[0] == '+' || value[0] == '-')) {
+			*p++ = value[0];
+			++value;
+			--valueLength;
+			--padSize;
+		}
+		// fallthrough
+	default:
+		leftPad = 0;
+		rightPad = padSize;
+		break;
+	}
+
+	if (leftPad >= pEnd - p) {
+		memset(p, spec.fill, pEnd - p);
+		return false;
+	}
+	memset(p, spec.fill, leftPad);
+	p += leftPad;
+
+	if (spec.quote) {
+		if (spec.type == 'c')
+			*p++ = '\'';
+		else
+			*p++ = '"';
+		if (p == pEnd)
+			return false;
+		p = _jvimpl_EscapeString(p, pEnd, value, value + valueLength);
+		if (spec.type == 'c')
+			*p++ = '\'';
+		else
+			*p++ = '"';
+		if (p == pEnd)
+			return false;
+	}
+	else {
+		if (valueLength >= pEnd - p) {
+			memcpy(p, value, pEnd - p);
+			return false;
+		}
+		memcpy(p, value, valueLength);
+	}
+	// Slowest path, everything is bound-checked.
+	_jvimpl_PutStringBoundChecked(f, spec, value, valueLength, p, pEnd);
+	return;
+	/*
+	// Left-padding.
+
+	if (spec.align == '=') {
+		if (!spec.quote && valueLength > 0 && (value[0] == '+' || value[0] == '-')) {
+			*p = value[0];
+			++value;
+			--valueLength;
+			--contentLength;
+			--padSize;
+		}
+		memset(p, spec.fill, padSize);
+		p += padSize;
+		padSize = 0;
+	}
+	else if (spec.align == '>') {
+		memset(p, spec.fill, padSize);
+		p += padSize;
+		padSize = 0;
+	}
+	else if (spec.align == '^') {
+		memset(p, spec.fill, padSize / 2);
+		p += padSize / 2;
+		padSize -= padSize / 2;
+	}
+
+	if (spec.quote) {
+		*p = '"';
+		if (spec.type == 'c')
+			*p = '\'';
+		++p;
+	}
+	if (contentLength == valueLength) {
+		if (spec.type != 'g') {
+			memcpy(p, value, valueLength);
+		}
+		else {
+			for (size_t i = 0; i < valueLength; ++i) {
+				char c = value[i];
+				if (c == '\\')
+					c = '/';
+				p[i] = c;
+			}
+			p += valueLength;
+		}
+	}
+	else {
+		// Do the quotation magic...
+	}
+
+	// Right padding.
+
+	if (padSize > 0) {
+		memset(p, spec.fill, padSize);
+		padSize = 0;
+	}
+
+	jvfmt_PutRawBytes(f, "JVERR-NOIMPL", 12);
+	*/
+}
+
+char* jvfmt_PutOverwrite(JVFMT* f, size_t* inout_pLength)
+{
+	size_t putLength = *inout_pLength;
+	size_t remaining = f->_priv_posEnd - f->_priv_pos;
+	if (putLength < remaining) {
+		// Fast path - there is space remaining in the ring buffer.
+		char const* p = f->pBuffer + f->_priv_pos;
+		f->_priv_pos += putLength;
+		return p;
+	}
+
+	// Slow path - need to move bytes around in the ring buffer.
+
+	size_t currentLength = f->_priv_pos - f->_priv_posBegin;
+	if (putLength > f->maxLength - currentLength)
+		putLength = f->maxLength - currentLength;
+
+	// Move the current string at start of ring buffer.
 	// This same check works also when `f` has just been zero-initialized,
 	// to init `_priv_posEnd` to its relevant value `maxLength`.
+	char* pSrc = f->pBuffer + f->_priv_posBegin;
+	char* pDst = f->pBuffer;
+	memmove(pDst, pSrc, currentLength);
+	f->_priv_posBegin = 0;
+	f->_priv_pos = currentLength + putLength;
+	f->_priv_posEnd = f->maxLength;
+	return f->pBuffer + currentLength;
+}
+
+void jvfmt_PutRawChars(JVFMT* f, char const* pChars, size_t charCount)
+{
+	size_t actualCount = charCount;
+	char* p = jvfmt_PutOverwrite(f, &actualCount);
+	memcpy(p, pChars, actualCount);
+}
+#endif
+
+char* jvfmt_PutOverwrite(JVFMT* f, JVFMT_SPEC spec, size_t* inout_pCharCount)
+{
+	size_t valueLength = *inout_pCharCount;
+
+	// 1. Apply spec.width argument.
+
+	size_t outputLength = valueLength;
+	if (outputLength < spec.width)
+		outputLength = spec.width;
+
+	// 2. Grow the output buffer if needed.
+
 	size_t remaining = f->_priv_posEnd - f->_priv_pos;
-	if (byteCount > remaining								  //
-		&& f->_priv_posEnd - f->_priv_posBegin < f->maxLength //
-	) {
-		char* pSrc = f->pBuffer + f->_priv_posBegin;
-		char* pDst = f->pBuffer;
-		size_t count = f->_priv_pos - f->_priv_posBegin;
-		memmove(pDst, pSrc, count);
-		f->_priv_posBegin = 0;
-		f->_priv_pos = count;
-		f->_priv_posEnd = f->maxLength;
-		remaining = f->maxLength - count;
+	if (remaining < outputLength) {
+		// Reached the end of the buffer. Are we already at "maxLength" limit?
+		if (f->_priv_posEnd - f->_priv_posBegin < f->maxLength) {
+			// We have reached the ring buffer's end.
+			// We move the current string to the begin of the ring buffer.
+			size_t currentLength = f->_priv_pos - f->_priv_posBegin;
+			memmove(f->pBuffer, f->pBuffer + f->_priv_pos, currentLength);
+			f->_priv_posBegin = 0;
+			f->_priv_pos = currentLength;
+			f->_priv_posEnd = f->maxLength;
+			remaining = f->_priv_posEnd - f->_priv_pos;
+		}
 	}
-	if (byteCount > remaining)
-		byteCount = remaining;
-	memcpy(f->pBuffer + f->_priv_pos, pBytes, byteCount);
-	f->_priv_pos += byteCount;
+	char* p = f->pBuffer + f->_priv_pos;
+	char* pEnd = p + remaining;
+
+	// 3. Compute padding.
+
+	// Default is left-alignment.
+	size_t leftPad = 0;
+	size_t rightPad = outputLength - valueLength;
+	if (spec.align == '>') {
+		// Right-alignment.
+		leftPad = rightPad;
+		rightPad = 0;
+	}
+	else if (spec.align == '^') {
+		// Center-alignment.
+		leftPad = rightPad / 2;
+		rightPad -= leftPad;
+	}
+
+	// 4. Fill the padding.
+
+	if (leftPad > 0) {
+		if (leftPad > remaining)
+			leftPad = remaining;
+		memset(p, spec.fill, leftPad);
+		p += leftPad;
+		remaining -= leftPad;
+	}
+
+	if (valueLength > remaining)
+		valueLength = remaining;
+	pEnd = p + valueLength;
+	remaining -= valueLength;
+
+	if (rightPad > 0) {
+		if (rightPad > remaining)
+			rightPad = remaining;
+		memset(pEnd, spec.fill, rightPad);
+		remaining -= rightPad;
+	}
+
+	// 5. Finalize.
+
+	f->_priv_pos = f->_priv_posEnd - remaining;
+	*inout_pCharCount = pEnd - p;
+	return p;
+}
+
+char const* jvfmt_PutFinalize(JVFMT* f)
+{
+	char const* p = f->pBuffer + f->_priv_posBegin;
+	char* pEnd = f->pBuffer + f->_priv_pos;
+	// ASSERT(pEnd - p <= f->maxLength);
+
+	*pEnd = '\0';
+	++f->_priv_pos;
+	f->_priv_posBegin = f->_priv_posBegin;
+	if (f->bufferSize - f->_priv_pos >= f->maxLength)
+		f->_priv_posEnd = f->_priv_posBegin + f->maxLength;
+	else
+		f->_priv_posEnd = f->bufferSize;
+
+	return p;
 }

@@ -1,12 +1,12 @@
 
-# JVFMT
+# JVFMT (currently WIP!)
 
-## Usage
+
+
+## High-level API
 
 === INCLUDE ../tests/jvfmt_test_usage.c USAGE ===
 
-### Low-level API
+## Low-level API
 
-=== INCLUDE ../tests/jvfmt_test_usage_lowlevel.c USAGE_LOWLEVEL_SPEC ===
-
-=== INCLUDE ../tests/jvfmt_test_usage_lowlevel.c USAGE_LOWLEVEL_CONCAT ===
+=== INCLUDE ../tests/jvfmt_test_usage_lowlevel.c USAGE_LOWLEVEL ===

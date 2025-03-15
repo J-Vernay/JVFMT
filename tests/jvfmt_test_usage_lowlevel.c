@@ -12,7 +12,13 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	(void)params;
 	(void)fixture;
 
-	/// === BEGIN USAGE_LOWLEVEL_SPEC ===
+	size_t size = 0;
+	char* p = NULL;
+
+	/// === BEGIN USAGE_LOWLEVEL ===
+	///
+	/// ### The JVFMT_SPEC structure
+	///
 	///	Whether you want to call directly the low-level API or implement a custom formatter,
 	/// you need to provide a format specification, represented by the `JVFMT_SPEC` structure.
 
@@ -65,32 +71,58 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	ASSERT(spec.type, ==, 'X');
 	ASSERT_STR_EQUAL(spec.flags, "#_0");
 
-	/// === END ===
+	/// ### jvfmtPutOverwrite() and jvfmtPutFinalize()
+	///
+	/// `jvfmtPutOverwrite()` is the lowest-level API exposed by JVFMT.
+	/// You are expected to know the output size in advance;
+	/// the function reserves an area in the ring buffer for your output,
+	/// and also fills the left and right padding for alignment purpose,
+	/// according to the spec's `width`, `align` and `fill`.
+	///
+	/// > [!IMPORTANT]
+	/// > The returned area can be smaller than the requested size,
+	///   when the `maxLength` limit is reached. Make sure to take
+	///   into account the returned size and output only those chars!
+	///
+	/// After all `jvfmtPutOverwrite()` operations, use `jvfmtPutFinalize()`
+	/// to add a null-terminator, and get back a pointer to the total string.
 
-	/// === BEGIN USAGE_LOWLEVEL_CONCAT ===
-	///
-	/// **jvfmt** exposes a low-level API consisting of direct element concatenation.
-	/// Note that these APIs do not null-terminate their output.
-	///
-	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_CONCAT ===
-	///
-	/// Among these functions, `jvfmtConcatRawBytes()` is the most basic: it directly
-	/// copies bytes to the `JVFMT` buffer.
+	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_PUTOVERWRITE ===
 
-	char fmtBuffer[JVFMT_RECOMMENDED_BUFFER_SIZE];
+	char fmtBuffer[64];
 	JVFMT f = {0};
 	f.pBuffer = fmtBuffer;
-	f.bufferSize = JVFMT_RECOMMENDED_BUFFER_SIZE;
-	f.maxLength = JVFMT_RECOMMENDED_MAX_LENGTH;
+	f.bufferSize = sizeof(fmtBuffer);
+	f.maxLength = 31;
 
-	jvfmtConcatRawBytes(&f, "Hello,", 6);
-	ASSERT_MEM_EQUAL(6, f.pBuffer, "Hello,");
-	ASSERT(f._priv_pos, ==, 6); /// === HIDE ===
+	spec = (JVFMT_SPEC){0};
+	size = 6;
+	p = jvfmt_PutOverwrite(&f, spec, &size);
+	ASSERT(size, ==, 6);
+	memcpy(p, "Hello,", size);
 
-	jvfmtConcatRawBytes(&f, " World!", 7);
-	ASSERT_MEM_EQUAL(13, f.pBuffer, "Hello, World!");
-	ASSERT(f._priv_pos, ==, 13); /// === HIDE ===
+	spec = (JVFMT_SPEC){.width = 12, .fill = '_', .align = '^'};
+	size = 5;
+	p = jvfmt_PutOverwrite(&f, spec, &size);
+	ASSERT(size, ==, 5);
+	memcpy(p, "World", size);
 
+	spec = (JVFMT_SPEC){.width = 6, .fill = ' ', .align = '>'};
+	size = 3;
+	p = jvfmt_PutOverwrite(&f, spec, &size);
+	ASSERT(size, ==, 3);
+	memcpy(p, "!!!", size);
+
+	spec = (JVFMT_SPEC){0};
+	size = 9;
+	p = jvfmt_PutOverwrite(&f, spec, &size);
+	ASSERT(size, ==, 7); // Reached limit: maxLength = 31
+	memcpy(p, "BlaBlaBla", size);
+
+	char const* pResult = jvfmt_PutFinalize(&f);
+	ASSERT_STR_EQUAL(pResult, "Hello,___World____   !!!BlaBlaB");
+
+	///
 	/// === END ===
 
 	return MUNIT_OK;

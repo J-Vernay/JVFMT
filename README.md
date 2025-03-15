@@ -1,7 +1,9 @@
 
-# JVFMT
+# JVFMT (currently WIP!)
 
-## Usage
+
+
+## High-level API
 
 
 Contrary to most C formatting string APIs, **jvfmt** is explicit about its state.
@@ -100,7 +102,10 @@ pString = jvfmt4(&f, "{} {} {} {}", 0.25f, 1.125e300, INT64_MIN, UINT64_MAX);
 ```
 
 
-### Low-level API
+## Low-level API
+
+
+### The JVFMT_SPEC structure
 
    Whether you want to call directly the low-level API or implement a custom formatter,
 you need to provide a format specification, represented by the `JVFMT_SPEC` structure.
@@ -172,36 +177,69 @@ ASSERT(spec.type, ==, 'X');
 ASSERT_STR_EQUAL(spec.flags, "#_0");
 ```
 
+### jvfmtPutOverwrite() and jvfmtPutFinalize()
 
+`jvfmtPutOverwrite()` is the lowest-level API exposed by JVFMT.
+You are expected to know the output size in advance;
+the function reserves an area in the ring buffer for your output,
+and also fills the left and right padding for alignment purpose,
+according to the spec's `width`, `align` and `fill`.
 
-**jvfmt** exposes a low-level API consisting of direct element concatenation.
-Note that these APIs do not null-terminate their output.
+> [!IMPORTANT]
+> The returned area can be smaller than the requested size,
+  when the `maxLength` limit is reached. Make sure to take
+  into account the returned size and output only those chars!
+
+After all `jvfmtPutOverwrite()` operations, use `jvfmtPutFinalize()`
+to add a null-terminator, and get back a pointer to the total string.
 
 
 ```h
-void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC spec, void const* value);
-void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC spec, long long value);
-void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value);
-void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC spec, float value);
-void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC spec, double value);
-void jvfmtConcatString(JVFMT* f, JVFMT_SPEC spec, char const* value);
-void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);
+// Gives back a buffer where a formatter can output bytes.
+// Formatters need to precompute their output size first, then they call
+// `jvfmt_PutOverwrite()` to obtain a buffer for this output.
+// The spec's width/align/fill are handled by this function.
+char* jvfmt_PutOverwrite(JVFMT* f, JVFMT_SPEC spec, size_t* inout_pCharCount);
+
+// Indicates that all PutOverwrite() are considered done.
+// The next PutOverwrite() will start a new string.
+// Returns a pointer to the total string written.
+char const* jvfmt_PutFinalize(JVFMT* f);
 ```
 
-
-Among these functions, `jvfmtConcatRawBytes()` is the most basic: it directly
-copies bytes to the `JVFMT` buffer.
 
 ```c
-char fmtBuffer[JVFMT_RECOMMENDED_BUFFER_SIZE];
+char fmtBuffer[64];
 JVFMT f = {0};
 f.pBuffer = fmtBuffer;
-f.bufferSize = JVFMT_RECOMMENDED_BUFFER_SIZE;
-f.maxLength = JVFMT_RECOMMENDED_MAX_LENGTH;
+f.bufferSize = sizeof(fmtBuffer);
+f.maxLength = 31;
 
-jvfmtConcatRawBytes(&f, "Hello,", 6);
-ASSERT_MEM_EQUAL(6, f.pBuffer, "Hello,");
+spec = (JVFMT_SPEC){0};
+size = 6;
+p = jvfmt_PutOverwrite(&f, spec, &size);
+ASSERT(size, ==, 6);
+memcpy(p, "Hello,", size);
 
-jvfmtConcatRawBytes(&f, " World!", 7);
-ASSERT_MEM_EQUAL(13, f.pBuffer, "Hello, World!");
+spec = (JVFMT_SPEC){.width = 12, .fill = '_', .align = '^'};
+size = 5;
+p = jvfmt_PutOverwrite(&f, spec, &size);
+ASSERT(size, ==, 5);
+memcpy(p, "World", size);
+
+spec = (JVFMT_SPEC){.width = 6, .fill = ' ', .align = '>'};
+size = 3;
+p = jvfmt_PutOverwrite(&f, spec, &size);
+ASSERT(size, ==, 3);
+memcpy(p, "!!!", size);
+
+spec = (JVFMT_SPEC){0};
+size = 9;
+p = jvfmt_PutOverwrite(&f, spec, &size);
+ASSERT(size, ==, 7); // Reached limit: maxLength = 31
+memcpy(p, "BlaBlaBla", size);
+
+char const* pResult = jvfmt_PutFinalize(&f);
+ASSERT_STR_EQUAL(pResult, "Hello,___World____   !!!BlaBlaB");
 ```
+

@@ -3,6 +3,7 @@
 #define JVFMT_H_
 
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct JVFMT JVFMT;
 typedef union JVFMT_ARG JVFMT_ARG;
@@ -189,15 +190,26 @@ bool jvfmtParseSpec(char const* p, JVFMT_SPEC* pSpec);
 
 /// === END ===
 
-/// === BEGIN HEADER_LOWLEVEL_CONCAT ===
+bool jvfmt_PutPtr(JVFMT* f, JVFMT_SPEC spec, void const* value);
+bool jvfmt_PutInt(JVFMT* f, JVFMT_SPEC spec, long long value);
+bool jvfmt_PutUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value);
+bool jvfmt_PutFloat(JVFMT* f, JVFMT_SPEC spec, float value);
+bool jvfmt_PutDouble(JVFMT* f, JVFMT_SPEC spec, double value);
+bool jvfmt_PutString(JVFMT* f, JVFMT_SPEC spec, char const* value, size_t valueLength);
+void jvfmt_PutRawChars(JVFMT* f, char const* pChars, size_t charCount);
 
-void jvfmtConcatPtr(JVFMT* f, JVFMT_SPEC spec, void const* value);
-void jvfmtConcatInt(JVFMT* f, JVFMT_SPEC spec, long long value);
-void jvfmtConcatUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value);
-void jvfmtConcatFloat(JVFMT* f, JVFMT_SPEC spec, float value);
-void jvfmtConcatDouble(JVFMT* f, JVFMT_SPEC spec, double value);
-void jvfmtConcatString(JVFMT* f, JVFMT_SPEC spec, char const* value);
-void jvfmtConcatRawBytes(JVFMT* f, char const* pBytes, size_t byteCount);
+/// === BEGIN HEADER_LOWLEVEL_PUTOVERWRITE ===
+
+// Gives back a buffer where a formatter can output bytes.
+// Formatters need to precompute their output size first, then they call
+// `jvfmt_PutOverwrite()` to obtain a buffer for this output.
+// The spec's width/align/fill are handled by this function.
+char* jvfmt_PutOverwrite(JVFMT* f, JVFMT_SPEC spec, size_t* inout_pCharCount);
+
+// Indicates that all PutOverwrite() are considered done.
+// The next PutOverwrite() will start a new string.
+// Returns a pointer to the total string written.
+char const* jvfmt_PutFinalize(JVFMT* f);
 
 /// === END ===
 
