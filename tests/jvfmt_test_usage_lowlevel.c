@@ -13,15 +13,12 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	(void)fixture;
 
 	/// === BEGIN USAGE_LOWLEVEL_SPEC ===
-	///
-	/// ### The JVFMT_SPEC structure
-	///
 	///	Whether you want to call directly the low-level API or implement a custom formatter,
 	/// you need to provide a format specification, represented by the `JVFMT_SPEC` structure.
 
 	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_SPEC ===
 
-	/// The structure can be obtained by parsing the specification string with `jvfmtParseSpec()`.
+	/// The structure can be obtained by parsing the specification string with `jvfmt_ParseSpec()`.
 	///
 	/// ```abnf
 	/// spec      = [[fill] align] [flags] [width] ["." precision] [quote] [type]
@@ -50,7 +47,7 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	/// * `type` determines how the data should be presented (e.g. binary format...).
 
 	JVFMT_SPEC spec;
-	ASSERT(jvfmtParseSpec("42.110", &spec), ==, true);
+	ASSERT(jvfmt_ParseSpec("42.110", &spec), ==, true);
 	ASSERT(spec.width, ==, 42);
 	ASSERT(spec.precision, ==, 110);
 	ASSERT(spec.fill, ==, 0);
@@ -59,7 +56,7 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	ASSERT(spec.type, ==, 0);
 	ASSERT_STR_EQUAL(spec.flags, "");
 
-	ASSERT(jvfmtParseSpec("x^#_08X", &spec), ==, true);
+	ASSERT(jvfmt_ParseSpec("x^#_08X", &spec), ==, true);
 	ASSERT(spec.width, ==, 8);
 	ASSERT(spec.precision, ==, 0);
 	ASSERT(spec.fill, ==, 'x');
@@ -79,9 +76,6 @@ MunitResult jvfmt_test_usage_lowlevel_putoverwrite(MunitParameter const params[]
 	(void)fixture;
 
 	/// === BEGIN USAGE_LOWLEVEL_PUTOVERWRITE ===
-	///
-	/// ### jvfmt_PutOverwrite() and jvfmt_PutFinalize()
-	///
 	/// `jvfmt_PutOverwrite()` is the lowest-level API exposed by JVFMT.
 	/// You are expected to know the output size in advance;
 	/// the function reserves an area in the ring buffer for your output,
@@ -147,9 +141,6 @@ MunitResult jvfmt_test_usage_lowlevel_putstring(MunitParameter const params[], v
 	(void)fixture;
 
 	/// === BEGIN USAGE_LOWLEVEL_PUTSTRING ===
-	///
-	/// ### jvfmt_PutString()
-	///
 	/// `jvfmt_PutString()` is the low-level API for string formatting.
 	///	You can use it for writing custom formatters.
 
@@ -188,7 +179,7 @@ MunitResult jvfmt_test_usage_lowlevel_putstring(MunitParameter const params[], v
 	ASSERT(f._priv_pos, ==, 31); // === HIDE ===
 	ASSERT_MEM_EQUAL(31, fmtBuffer, "..Hello... abc \"Julien!\\r\\n\"[TH");
 
-	// Even though you can still put strings... nothing will be done.
+	// Even though, you can still put strings... nothing will be done.
 	spec = (JVFMT_SPEC){.quote = '?', .width = 12, .fill = "#", .align = '<'};
 	bContinue = jvfmt_PutString(&f, spec, "--test--", 8);
 	ASSERT(bContinue, ==, false);
@@ -197,6 +188,47 @@ MunitResult jvfmt_test_usage_lowlevel_putstring(MunitParameter const params[], v
 
 	char* p = jvfmt_PutFinalize(&f);
 	ASSERT_STR_EQUAL(p, "..Hello... abc \"Julien!\\r\\n\"[TH");
+
+	/// === END ===
+
+	return MUNIT_OK;
+}
+
+MunitResult jvfmt_test_usage_lowlevel_putptr(MunitParameter const params[], void* fixture)
+{
+	(void)params;
+	(void)fixture;
+
+	/// === BEGIN USAGE_LOWLEVEL_PUTPTR ===
+	/// `jvfmt_PutPtr()` is the low-level API for pointer formatting.
+	///	You can use it for writing custom formatters.
+	/// The format is fixed, except for the usual width/align/fill specifications:
+	/// `0x0123456789ABCDEF` (for 64-bit pointers).
+
+	JVFMT_SPEC spec;
+	bool bContinue;
+
+	char fmtBuffer[64];
+	JVFMT f = {0};
+	f.pBuffer = fmtBuffer;
+	f.bufferSize = sizeof(fmtBuffer);
+	f.maxLength = 31;
+
+	spec = (JVFMT_SPEC){.width = 22, .align = '^', .fill = '-'};
+	bContinue = jvfmt_PutPtr(&f, spec, (void*)0x0011223344556677);
+	ASSERT(bContinue, ==, true);
+	ASSERT(f._priv_pos, ==, 22); // === HIDE ===
+	ASSERT_MEM_EQUAL(22, fmtBuffer, "--0x0011223344556677--");
+
+	// Reaching maxLength -> bContinue will be FALSE. You should early exit at this point.
+	spec = (JVFMT_SPEC){0};
+	bContinue = jvfmt_PutPtr(&f, spec, (void*)0xABCDEABCDEABCDE0);
+	ASSERT(bContinue, ==, false);
+	ASSERT(f._priv_pos, ==, 31); // === HIDE ===
+	ASSERT_MEM_EQUAL(31, fmtBuffer, "--0x0011223344556677--0xABCDEAB");
+
+	char* p = jvfmt_PutFinalize(&f);
+	ASSERT_STR_EQUAL(p, "--0x0011223344556677--0xABCDEAB");
 
 	/// === END ===
 

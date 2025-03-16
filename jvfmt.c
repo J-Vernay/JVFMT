@@ -14,6 +14,12 @@
 #define JVIMPL_NOINLINE __attribute__((noinline))
 #endif
 
+#if !__cplusplus && __STDC_VERSION__ < 202311L
+#define JVIMPL_STATIC_ASSERT(cond) _Static_assert(cond, #cond)
+#else
+#define JVIMPL_STATIC_ASSERT(cond) static_assert(cond, #cond)
+#endif
+
 typedef enum _jvfmtError {
 	_jvfmt_OK = 0,
 	_jvfmt_CLOSE_BRACE_NOT_FOUND,
@@ -149,7 +155,7 @@ char const* jvfmt_end(JVFMT* f, char const* pFormat)
 	return f->pResult;
 }
 
-bool jvfmtParseSpec(char const* pIn, JVFMT_SPEC* pSpec)
+bool jvfmt_ParseSpec(char const* pIn, JVFMT_SPEC* pSpec)
 {
 	JVFMT_SPEC spec = {0};
 	size_t flagCount = 0;
@@ -291,6 +297,8 @@ char const* jvfmt_PutFinalize(JVFMT* f)
 	return p;
 }
 
+static char const _jvimpl_HEX_DIGITS[] = "0123456789ABCDEF";
+
 #pragma region jvfmt_PutString()
 
 // \t=0x09 \n=0x0A \r=0x0D \"=0x22 \\=0x5C
@@ -376,10 +384,10 @@ JVIMPL_NOINLINE static char* _jvimpl_EscapeString_SlowPath(char* p, char* pEnd, 
 		*p++ = '0';
 		if (p == pEnd)
 			return p;
-		*p++ = "0123456789ABCDEF"[c / 16];
+		*p++ = _jvimpl_HEX_DIGITS[c / 16];
 		if (p == pEnd)
 			return p;
-		*p++ = "0123456789ABCDEF"[c % 16];
+		*p++ = _jvimpl_HEX_DIGITS[c % 16];
 		return _jvimpl_EscapeString(p, pEnd, pIn, pInEnd);
 	}
 }
@@ -423,6 +431,37 @@ bool jvfmt_PutString(JVFMT* f, JVFMT_SPEC spec, char const* value, size_t valueL
 	else
 		*p++ = '"';
 	return true;
+}
+
+#pragma endregion
+
+#pragma region jvfmt_PutInt() / PutUint() / PutPtr()
+
+bool jvfmt_PutPtr(JVFMT* f, JVFMT_SPEC spec, void const* value)
+{
+	enum {
+		PTR_OUTPUT_LENGTH = 2 + 2 * sizeof(void const*)
+	};
+	JVIMPL_STATIC_ASSERT(sizeof(void const*) <= sizeof(unsigned long long));
+	JVIMPL_STATIC_ASSERT(PTR_OUTPUT_LENGTH <= JVFMT_TMP_SIZE);
+
+	char* p = f->_priv_tmpBuffer;
+	char* p2 = p + PTR_OUTPUT_LENGTH;
+
+	*p++ = '0';
+	*p++ = 'x';
+
+	unsigned long long v = (unsigned long long)value;
+
+	while (p < p2) {
+		*--p2 = _jvimpl_HEX_DIGITS[v & 0x0F];
+		v >>= 4;
+	}
+
+	size_t actualCount = PTR_OUTPUT_LENGTH;
+	char* pDst = jvfmt_PutOverwrite(f, spec, &actualCount);
+	memcpy(pDst, f->_priv_tmpBuffer, actualCount);
+	return actualCount == PTR_OUTPUT_LENGTH;
 }
 
 #pragma endregion

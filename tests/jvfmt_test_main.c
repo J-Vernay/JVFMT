@@ -6,6 +6,7 @@ MunitResult jvfmt_test_usage(MunitParameter const[], void*);
 MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const[], void*);
 MunitResult jvfmt_test_usage_lowlevel_putoverwrite(MunitParameter const[], void*);
 MunitResult jvfmt_test_usage_lowlevel_putstring(MunitParameter const[], void*);
+MunitResult jvfmt_test_usage_lowlevel_putptr(MunitParameter const params[], void* fixture);
 
 MunitTest jvfmt_tests[] = {
 	{
@@ -39,6 +40,14 @@ MunitTest jvfmt_tests[] = {
 		NULL,								 /* tear_down */
 		MUNIT_TEST_OPTION_NONE,				 /* options */
 		NULL								 /* parameters */
+	},
+	{
+		"/usage_lowlevel_putptr",		  /* name */
+		jvfmt_test_usage_lowlevel_putptr, /* test */
+		NULL,							  /* setup */
+		NULL,							  /* tear_down */
+		MUNIT_TEST_OPTION_NONE,			  /* options */
+		NULL							  /* parameters */
 	},
 	{NULL}
 };

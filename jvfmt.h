@@ -63,7 +63,8 @@ char const* jvfmt_end(JVFMT* p, char const* pFormat);
 
 /// @}
 
-#define FMT_MAX_ARGS 7
+#define JVFMT_MAX_ARGS 7
+#define JVFMT_TMP_SIZE 128
 
 #define JVFMT_RECOMMENDED_BUFFER_SIZE 4096
 #define JVFMT_RECOMMENDED_MAX_LENGTH 511
@@ -96,16 +97,14 @@ struct JVFMT {
 	/// **(CALL)** Number of arguments.
 	size_t argCount;
 	/// **(CALL)** Type of each argument, encoded as a single ASCII byte per argument.
-	char argKinds[FMT_MAX_ARGS];
+	char argKinds[JVFMT_MAX_ARGS];
 	/// **(CALL)** Storage for each argument.
-	JVFMT_ARG args[FMT_MAX_ARGS];
-
-	/// **(INTERNAL)** Beginning for next formatted output.
-	// size_t _priv_pos;
+	JVFMT_ARG args[JVFMT_MAX_ARGS];
 
 	size_t _priv_posBegin;
 	size_t _priv_posEnd;
 	size_t _priv_pos;
+	char _priv_tmpBuffer[JVFMT_TMP_SIZE];
 };
 
 inline void jvfmt_begin(JVFMT* p)
@@ -186,7 +185,7 @@ struct JVFMT_SPEC {
 
 // Utility for implementing custom formatters with some decent support for specifiers.
 // @returns Whether the entire specification have been consumed, else an error occurred.
-bool jvfmtParseSpec(char const* p, JVFMT_SPEC* pSpec);
+bool jvfmt_ParseSpec(char const* p, JVFMT_SPEC* pSpec);
 
 /// === END ===
 
