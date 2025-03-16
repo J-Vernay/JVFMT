@@ -196,7 +196,6 @@ bool jvfmt_PutUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value);
 bool jvfmt_PutFloat(JVFMT* f, JVFMT_SPEC spec, float value);
 bool jvfmt_PutDouble(JVFMT* f, JVFMT_SPEC spec, double value);
 bool jvfmt_PutString(JVFMT* f, JVFMT_SPEC spec, char const* value, size_t valueLength);
-void jvfmt_PutRawChars(JVFMT* f, char const* pChars, size_t charCount);
 
 /// === BEGIN HEADER_LOWLEVEL_PUTOVERWRITE ===
 

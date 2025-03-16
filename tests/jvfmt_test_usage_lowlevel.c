@@ -12,10 +12,7 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	(void)params;
 	(void)fixture;
 
-	size_t size = 0;
-	char* p = NULL;
-
-	/// === BEGIN USAGE_LOWLEVEL ===
+	/// === BEGIN USAGE_LOWLEVEL_SPEC ===
 	///
 	/// ### The JVFMT_SPEC structure
 	///
@@ -71,9 +68,21 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	ASSERT(spec.type, ==, 'X');
 	ASSERT_STR_EQUAL(spec.flags, "#_0");
 
-	/// ### jvfmtPutOverwrite() and jvfmtPutFinalize()
+	/// === END ===
+
+	return MUNIT_OK;
+}
+
+MunitResult jvfmt_test_usage_lowlevel_putoverwrite(MunitParameter const params[], void* fixture)
+{
+	(void)params;
+	(void)fixture;
+
+	/// === BEGIN USAGE_LOWLEVEL_PUTOVERWRITE ===
 	///
-	/// `jvfmtPutOverwrite()` is the lowest-level API exposed by JVFMT.
+	/// ### jvfmt_PutOverwrite() and jvfmt_PutFinalize()
+	///
+	/// `jvfmt_PutOverwrite()` is the lowest-level API exposed by JVFMT.
 	/// You are expected to know the output size in advance;
 	/// the function reserves an area in the ring buffer for your output,
 	/// and also fills the left and right padding for alignment purpose,
@@ -84,10 +93,14 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	///   when the `maxLength` limit is reached. Make sure to take
 	///   into account the returned size and output only those chars!
 	///
-	/// After all `jvfmtPutOverwrite()` operations, use `jvfmtPutFinalize()`
+	/// After all `jvfmt_PutOverwrite()` operations, use `jvfmt_PutFinalize()`
 	/// to add a null-terminator, and get back a pointer to the total string.
 
 	/// === INCLUDE ../jvfmt.h HEADER_LOWLEVEL_PUTOVERWRITE ===
+
+	JVFMT_SPEC spec;
+	size_t size;
+	char* p;
 
 	char fmtBuffer[64];
 	JVFMT f = {0};
@@ -123,6 +136,68 @@ MunitResult jvfmt_test_usage_lowlevel_spec(MunitParameter const params[], void* 
 	ASSERT_STR_EQUAL(pResult, "Hello,___World____   !!!BlaBlaB");
 
 	///
+	/// === END ===
+
+	return MUNIT_OK;
+}
+
+MunitResult jvfmt_test_usage_lowlevel_putstring(MunitParameter const params[], void* fixture)
+{
+	(void)params;
+	(void)fixture;
+
+	/// === BEGIN USAGE_LOWLEVEL_PUTSTRING ===
+	///
+	/// ### jvfmt_PutString()
+	///
+	/// `jvfmt_PutString()` is the low-level API for string formatting.
+	///	You can use it for writing custom formatters.
+
+	JVFMT_SPEC spec;
+	bool bContinue;
+
+	char fmtBuffer[64];
+	JVFMT f = {0};
+	f.pBuffer = fmtBuffer;
+	f.bufferSize = sizeof(fmtBuffer);
+	f.maxLength = 31;
+
+	spec = (JVFMT_SPEC){.width = 10, .align = '^', .fill = '.'};
+	bContinue = jvfmt_PutString(&f, spec, "Hello", 5);
+	ASSERT(bContinue, ==, true);
+	ASSERT(f._priv_pos, ==, 10); // === HIDE ===
+	ASSERT_MEM_EQUAL(10, fmtBuffer, "..Hello...");
+
+	// The string length can be specified using the "precision" spec.
+	spec = (JVFMT_SPEC){.precision = 5};
+	bContinue = jvfmt_PutString(&f, spec, " abc def ", SIZE_MAX);
+	ASSERT(bContinue, ==, true);
+	ASSERT(f._priv_pos, ==, 15); // === HIDE ===
+	ASSERT_MEM_EQUAL(15, fmtBuffer, "..Hello... abc ");
+
+	spec = (JVFMT_SPEC){.quote = '?'};
+	bContinue = jvfmt_PutString(&f, spec, "Julien!\r\n", 9);
+	ASSERT(bContinue, ==, true);
+	ASSERT(f._priv_pos, ==, 28); // === HIDE ===
+	ASSERT_MEM_EQUAL(28, fmtBuffer, "..Hello... abc \"Julien!\\r\\n\"");
+
+	// Reaching maxLength -> bContinue will be FALSE. You should early exit at this point.
+	spec = (JVFMT_SPEC){0};
+	bContinue = jvfmt_PutString(&f, spec, "[THE END]", 9);
+	ASSERT(bContinue, ==, false);
+	ASSERT(f._priv_pos, ==, 31); // === HIDE ===
+	ASSERT_MEM_EQUAL(31, fmtBuffer, "..Hello... abc \"Julien!\\r\\n\"[TH");
+
+	// Even though you can still put strings... nothing will be done.
+	spec = (JVFMT_SPEC){.quote = '?', .width = 12, .fill = "#", .align = '<'};
+	bContinue = jvfmt_PutString(&f, spec, "--test--", 8);
+	ASSERT(bContinue, ==, false);
+	ASSERT(f._priv_pos, ==, 31); // === HIDE ===
+	ASSERT_MEM_EQUAL(31, fmtBuffer, "..Hello... abc \"Julien!\\r\\n\"[TH");
+
+	char* p = jvfmt_PutFinalize(&f);
+	ASSERT_STR_EQUAL(p, "..Hello... abc \"Julien!\\r\\n\"[TH");
+
 	/// === END ===
 
 	return MUNIT_OK;
