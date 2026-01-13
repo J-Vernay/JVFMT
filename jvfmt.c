@@ -297,6 +297,7 @@ char const* jvfmt_PutFinalize(JVFMT* f)
 	return p;
 }
 
+static char const _jvimpl_HEX_DIGITS_LOWER[] = "0123456789abcdef";
 static char const _jvimpl_HEX_DIGITS[] = "0123456789ABCDEF";
 
 #pragma region jvfmt_PutString()
@@ -462,6 +463,141 @@ bool jvfmt_PutPtr(JVFMT* f, JVFMT_SPEC spec, void const* value)
 	char* pDst = jvfmt_PutOverwrite(f, spec, &actualCount);
 	memcpy(pDst, f->_priv_tmpBuffer, actualCount);
 	return actualCount == PTR_OUTPUT_LENGTH;
+}
+
+char* _jvimpl_PutHex(JVFMT* f, JVFMT_SPEC spec, unsigned long long value, char* p)
+{
+}
+
+char* _jvimpl_PutOct(JVFMT* f, JVFMT_SPEC spec, unsigned long long value, char* p)
+{
+}
+
+char* _jvimpl_PutBin(JVFMT* f, JVFMT_SPEC spec, unsigned long long value, char* p)
+{
+}
+
+char* _jvimpl_PutDec(JVFMT* f, JVFMT_SPEC spec, unsigned long long value, char* p)
+{
+}
+
+static bool _jvimpl_PutInt(JVFMT* f, JVFMT_SPEC spec, unsigned long long value, char sign)
+{
+	// Worst-case length: sign + alternate form + binary 64 bits
+	JVIMPL_STATIC_ASSERT(JVFMT_TMP_SIZE >= 67);
+
+	char* p = f->_priv_tmpBuffer;
+
+	if (!spec.align) {
+		if (jvfmt_SpecHasFlag(spec, '0'))
+			spec.align = '=';
+		else
+			spec.align = '>';
+	}
+
+	// 1. Handle sign.
+
+	if (sign == '-')
+		*p++ = '-';
+	else if (jvfmt_SpecHasFlag(spec, '+'))
+		*p++ = '+';
+	else if (jvfmt_SpecHasFlag(spec, ' '))
+		*p++ = ' ';
+
+	// 2. Generate alt form and digits. (at this point, the digits are in reverse order!)
+
+	bool bAltForm = jvfmt_SpecHasFlag(spec, '#');
+
+	char* p2;
+	if (spec.type == 'x') {
+		if (bAltForm) {
+			*p++ = '0';
+			*p++ = 'x';
+		}
+		p2 = p;
+		for (; value; value >>= 4)
+			*p2++ = _jvimpl_HEX_DIGITS_LOWER[value & 0x0F];
+	}
+	else if (spec.type == 'X') {
+		if (bAltForm) {
+			*p++ = '0';
+			*p++ = 'X';
+		}
+		p2 = p;
+		for (; value; value >>= 4)
+			*p2++ = _jvimpl_HEX_DIGITS[value & 0x0F];
+	}
+	else if (spec.type == 'o') {
+		if (bAltForm) {
+			*p++ = '0';
+			*p++ = 'o';
+		}
+		p2 = p;
+		for (; value; value >>= 3)
+			*p2++ = '0' + (value & 0x07);
+	}
+	else if (spec.type == 'b') {
+		if (bAltForm) {
+			*p++ = '0';
+			*p++ = 'b';
+		}
+		p2 = p;
+		for (; value; value >>= 1)
+			*p2++ = '0' + (value & 0x01);
+	}
+	else {
+		p2 = p;
+		for (; value; value /= 10)
+			*p2++ = '0' + (value % 10);
+	}
+
+	if (p2 == p)
+		*p2++ = '0'; // "value" is zero, no digits were outputted before.
+
+	// 3. Compute and reserve size.
+
+	size_t prefixCount = p - f->_priv_tmpBuffer;
+	size_t digitCount = p2 - p;
+	size_t zeroPadding = 0;
+	if (spec.align == '=' && spec.width > prefixCount + digitCount)
+		zeroPadding = spec.width - prefixCount - digitCount;
+
+	size_t totalSize = prefixCount + digitCount + zeroPadding;
+	char* pDst = jvfmt_PutOverwrite(f, spec, &totalSize);
+	char* pDstEnd = pDst + totalSize;
+
+	// 4. Output prefix.
+
+	if (totalSize < prefixCount) {
+		memcpy(pDst, f->_priv_tmpBuffer, totalSize);
+		return false;
+	}
+	memcpy(pDst, f->_priv_tmpBuffer, prefixCount);
+	pDst += prefixCount;
+
+	// 5. Output suffix.
+
+	size_t i = 3;
+	for (; p < p2; ++p) {
+		if (i-- == 0) {
+			i = 3;
+			*--pDstEnd = '_';
+		}
+		*--pDstEnd = p;
+	}
+}
+
+bool jvfmt_PutInt(JVFMT* f, JVFMT_SPEC spec, long long value)
+{
+	if (value >= 0)
+		return _jvimpl_PutInt(f, spec, (unsigned long long)value, '+');
+	else
+		return _jvimpl_PutInt(f, spec, (unsigned long long)-value, '-');
+}
+
+bool jvfmt_PutUint(JVFMT* f, JVFMT_SPEC spec, unsigned long long value)
+{
+	return _jvimpl_PutInt(f, spec, value, '+');
 }
 
 #pragma endregion

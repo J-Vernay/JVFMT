@@ -180,14 +180,26 @@ struct JVFMT_SPEC {
 	char align;
 	char quote;
 	char type;
-	char flags[8];
+	union {
+		char flags[8];
+		unsigned long long flags_u64;
+	};
 };
 
 // Utility for implementing custom formatters with some decent support for specifiers.
 // @returns Whether the entire specification have been consumed, else an error occurred.
 bool jvfmt_ParseSpec(char const* p, JVFMT_SPEC* pSpec);
+bool jvfmt_SpecHasFlag(JVFMT_SPEC spec, char c);
 
 /// === END ===
+
+static inline bool jvfmt_SpecHasFlag(JVFMT_SPEC spec, char c)
+{
+	// Adapted to 64-bits from:
+	// https://graphics.stanford.edu/~seander/bithacks.html#ValueInWord
+	unsigned long long v = spec.flags_u64 ^ (0x0101010101010101ull * (unsigned char)c);
+	return (((v)-0x0101010101010101ull) & ~(v) & 0x8080808080808080ull);
+}
 
 bool jvfmt_PutPtr(JVFMT* f, JVFMT_SPEC spec, void const* value);
 bool jvfmt_PutInt(JVFMT* f, JVFMT_SPEC spec, long long value);
